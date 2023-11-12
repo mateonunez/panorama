@@ -54,14 +54,14 @@ test("basic router", async (t) => {
 
   await panorama.addRoute({
     method: "GET",
-    route: "/test",
+    url: "/test",
     handler: () => new Response("hello panorama"),
   });
 
   const route = await panorama.getRoute("/test");
 
   assert.equal(route.method, "GET");
-  assert.equal(route.route, "/test");
+  assert.equal(route.url, "/test");
   const result = route.handler({} as IncomingMessage, {} as ServerResponse);
   assert.equal(result.status, 200);
   assert.equal(await result.text(), "hello panorama");
@@ -75,7 +75,7 @@ test("http server with panorama", async (t) => {
 
   await panorama.addRoute({
     method: "GET",
-    route: "/test",
+    url: "/test",
     handler: (req: IncomingMessage, res: ServerResponse) => {
       // @ts-expect-error - require type assertion
       assert.ok(req);
@@ -106,7 +106,7 @@ test('http server with panorama and "not found" route', async (t) => {
 
   await panorama.addRoute({
     method: "GET",
-    route: "/test",
+    url: "/test",
     handler: (req: IncomingMessage, res: ServerResponse) => {
       // @ts-expect-error - require type assertion
       assert.ok(req);
@@ -118,7 +118,7 @@ test('http server with panorama and "not found" route', async (t) => {
 
   await panorama.addRoute({
     method: "GET",
-    route: "/not-found",
+    url: "/not-found",
     handler: (req: IncomingMessage, res: ServerResponse) => {
       // @ts-expect-error - require type assertion
       assert.ok(req);
@@ -149,7 +149,7 @@ test("http server with panorama and params", async (t) => {
 
   await panorama.addRoute({
     method: "GET",
-    route: "/test/:id",
+    url: "/test/:id",
     handler: (req: IncomingMessage, res: ServerResponse, params?: Record<string, string>) => {
       // @ts-expect-error - require type assertion
       assert.ok(req);
@@ -182,7 +182,7 @@ test("nested routes", async (t) => {
 
     await panorama.addRoute({
       method: "GET",
-      route: "/test",
+      url: "/test",
       handler: (req: IncomingMessage, res: ServerResponse) => {
         nodeAssert.ok(req);
         nodeAssert.ok(res);
@@ -192,7 +192,7 @@ test("nested routes", async (t) => {
 
     await panorama.addRoute({
       method: "GET",
-      route: "/test/another",
+      url: "/test/another",
       handler: (req: IncomingMessage, res: ServerResponse) => {
         nodeAssert.ok(req);
         nodeAssert.ok(res);
@@ -221,7 +221,7 @@ test("nested routes", async (t) => {
 
     await panorama.addRoute({
       method: "GET",
-      route: "/test/:id",
+      url: "/test/:id",
       handler: (req: IncomingMessage, res: ServerResponse, params?: Record<string, string>) => {
         nodeAssert.ok(req);
         nodeAssert.ok(res);
@@ -232,7 +232,7 @@ test("nested routes", async (t) => {
 
     await panorama.addRoute({
       method: "GET",
-      route: "/test/:id/another",
+      url: "/test/:id/another",
       handler: (req: IncomingMessage, res: ServerResponse, params?: Record<string, string>) => {
         nodeAssert.ok(req);
         nodeAssert.ok(res);

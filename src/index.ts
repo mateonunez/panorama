@@ -3,7 +3,7 @@ import type { HTTPVersion, PanoramaRoute, PanoramaRouteIndex, Req, Res } from ".
 
 const panoramaRouteIndexSchema = {
   method: "string",
-  route: "string",
+  url: "string",
 } as const;
 
 interface IPanorama<T, V extends HTTPVersion> {
@@ -59,7 +59,7 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
 
   async lookup(req: Req<V>, res: Res<V>): Promise<void> {
     const route = await this.getRoute(req.url);
-    const params = this.#computeParams(route.route, req.url);
+    const params = this.#computeParams(route.url, req.url);
     route.handler(req, res, params);
   }
 
@@ -78,7 +78,7 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
   #generateIndex(route: PanoramaRoute<T, V>): PanoramaRouteIndex {
     const index = {
       method: route.method,
-      route: route.route,
+      url: route.url,
     };
 
     return index as PanoramaRouteIndex;
