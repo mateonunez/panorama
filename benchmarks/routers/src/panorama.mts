@@ -1,4 +1,4 @@
-import { createPanorama } from '../../../dist/index.js';
+import { createPanorama } from '../../../src/index.ts';
 import { routes, handler } from './tool.mts';
 
 const name = 'panorama';

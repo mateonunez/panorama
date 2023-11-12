@@ -1,7 +1,6 @@
 {
   "scripts": {
-    "build:panorama": "cd ./../../ && npm run build",
-    "bench:node": "npm run build:panorama && tsx ./src/bench.mts",
+    "bench:node": "tsx ./src/bench.mts",
     "bench:bun": "bun run ./src/bench.mts",
     "bench-includes-init:node": "tsx ./src/bench-includes-init.mts",
     "bench-includes-init:bun": "bun run ./src/bench-includes-init.mts"
