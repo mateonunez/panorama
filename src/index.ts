@@ -59,7 +59,8 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
 
   async lookup(req: Req<V>, res: Res<V>): Promise<void> {
     const route = await this.getRoute(req.url);
-    route.handler(req, res);
+    const params = this.#computeParams(route.route, req.url);
+    route.handler(req, res, params);
   }
 
   get routes() {
@@ -81,6 +82,25 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
     };
 
     return index as PanoramaRouteIndex;
+  }
+
+  #computeParams(route: string, url?: string): Record<string, string> {
+    const params: Record<string, string> = {};
+    const routeParts = route.split("/");
+    /* c8 ignore next */
+    const urlParts = url?.split("/") || [];
+
+    for (let i = 0; i < routeParts.length; i++) {
+      const routePart = routeParts[i];
+      const urlPart = urlParts[i];
+
+      if (routePart.startsWith(":")) {
+        const paramName = routePart.slice(1);
+        params[paramName] = urlPart;
+      }
+    }
+
+    return params;
   }
 }
 
