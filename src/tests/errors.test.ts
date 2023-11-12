@@ -11,7 +11,7 @@ test("should throw if the route already exists", async (t) => {
 
   await panorama.addRoute({
     method: "GET",
-    route: "/test",
+    url: "/test",
     handler: () => new Response("hello panorama"),
   });
 
