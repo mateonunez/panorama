@@ -14,6 +14,8 @@ export type Handler<V extends HTTPVersion> = (req: Req<V>, res: Res<V>, params?:
 export type PanoramaRouteIndex = {
   method: string;
   url: string;
+  params?: string[];
+  segments?: string[];
 };
 
 export type PanoramaRoute<T, V extends HTTPVersion> = PanoramaRouteIndex & {
