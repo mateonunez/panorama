@@ -177,10 +177,36 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
   }
 
   #findFromHits(hits: Result<PanoramaRouteIndex>[], routeName: string, method: string, segments: Array<string>): string {
-    const route = hits.find((hit) => hit.document.method === method && hit.document.segments?.length === segments.length);
-    /* c8 ignore next 3 */
-    if (route === undefined) {
-      throw new Error(`route ${routeName} not found`);
+    const filteredHits = [];
+    for (let i = 0; i < hits.length; i++) {
+      if (hits[i].document.method === method) {
+        filteredHits.push(hits[i]);
+      }
+    }
+
+    if (filteredHits.length === 1) {
+      return filteredHits[0].id;
+    }
+
+    let route;
+    if (segments.length > 0) {
+      for (let i = 0; i < filteredHits.length; i++) {
+        if (filteredHits[i].document.segments?.length === segments.length) {
+          route = filteredHits[i];
+          break;
+        }
+      }
+    } else {
+      for (let i = 0; i < filteredHits.length; i++) {
+        if (filteredHits[i].document.url === routeName) {
+          route = filteredHits[i];
+          break;
+        }
+      }
+    }
+
+    if (!route) {
+      return hits[0].id;
     }
 
     return route.id;
