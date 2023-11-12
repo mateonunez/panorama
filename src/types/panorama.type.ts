@@ -9,7 +9,7 @@ export enum HTTPVersion {
 export type Req<V> = V extends HTTPVersion.HTTP1 ? IncomingMessage : Http2ServerRequest;
 export type Res<V> = V extends HTTPVersion.HTTP1 ? ServerResponse : Http2ServerResponse;
 
-export type Handler<V extends HTTPVersion> = (req: Req<V>, res: Res<V>) => any;
+export type Handler<V extends HTTPVersion> = (req: Req<V>, res: Res<V>, params?: Record<string, string>) => any;
 
 export type PanoramaRouteIndex = {
   method: string;

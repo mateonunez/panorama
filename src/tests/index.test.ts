@@ -68,7 +68,7 @@ test("basic router", async (t) => {
 });
 
 test("http server with panorama", async (t) => {
-  const assert = tspl(t, { plan: 2 });
+  const assert = tspl(t, { plan: 4 });
   const panorama = new Panorama();
 
   await panorama.init();
@@ -77,8 +77,10 @@ test("http server with panorama", async (t) => {
     method: "GET",
     route: "/test",
     handler: (req: IncomingMessage, res: ServerResponse) => {
-      nodeAssert.ok(req);
-      nodeAssert.ok(res);
+      // @ts-expect-error - require type assertion
+      assert.ok(req);
+      // @ts-expect-error - require type assertion
+      assert.ok(res);
       res.end(JSON.stringify({ hello: "panorama" }));
     },
   });
@@ -94,4 +96,161 @@ test("http server with panorama", async (t) => {
   assert.equal(statusCode, 200);
 
   await stopServer();
+});
+
+test('http server with panorama and "not found" route', async (t) => {
+  const assert = tspl(t, { plan: 4 });
+  const panorama = new Panorama();
+
+  await panorama.init();
+
+  await panorama.addRoute({
+    method: "GET",
+    route: "/test",
+    handler: (req: IncomingMessage, res: ServerResponse) => {
+      // @ts-expect-error - require type assertion
+      assert.ok(req);
+      // @ts-expect-error - require type assertion
+      assert.ok(res);
+      res.end(JSON.stringify({ hello: "panorama" }));
+    },
+  });
+
+  await panorama.addRoute({
+    method: "GET",
+    route: "/not-found",
+    handler: (req: IncomingMessage, res: ServerResponse) => {
+      // @ts-expect-error - require type assertion
+      assert.ok(req);
+      // @ts-expect-error - require type assertion
+      assert.ok(res);
+      res.end(JSON.stringify({ hello: "not found" }));
+    },
+  });
+
+  const server = http.createServer((req: IncomingMessage, res: ServerResponse) => {
+    panorama.lookup(req, res);
+  });
+
+  const { stopServer, port } = await startServer(server);
+  const { body, statusCode } = await httpGet(`http://localhost:${port}/not-found`);
+
+  assert.deepEqual(body, { hello: "not found" });
+  assert.equal(statusCode, 200);
+
+  await stopServer();
+});
+
+test("http server with panorama and params", async (t) => {
+  const assert = tspl(t, { plan: 5 });
+  const panorama = new Panorama();
+
+  await panorama.init();
+
+  await panorama.addRoute({
+    method: "GET",
+    route: "/test/:id",
+    handler: (req: IncomingMessage, res: ServerResponse, params?: Record<string, string>) => {
+      // @ts-expect-error - require type assertion
+      assert.ok(req);
+      // @ts-expect-error - require type assertion
+      assert.ok(res);
+      assert.deepEqual(params, { id: "another" });
+      res.end(JSON.stringify({ ...params }));
+    },
+  });
+
+  const server = http.createServer((req: IncomingMessage, res: ServerResponse) => {
+    panorama.lookup(req, res);
+  });
+
+  const { stopServer, port } = await startServer(server);
+  const { body, statusCode } = await httpGet(`http://localhost:${port}/test/another`);
+
+  assert.deepEqual(body, { id: "another" });
+  assert.equal(statusCode, 200);
+
+  await stopServer();
+});
+
+test("nested routes", async (t) => {
+  await t.test("basic nested routes", async (t) => {
+    const assert = tspl(t, { plan: 2 });
+    const panorama = new Panorama();
+
+    await panorama.init();
+
+    await panorama.addRoute({
+      method: "GET",
+      route: "/test",
+      handler: (req: IncomingMessage, res: ServerResponse) => {
+        nodeAssert.ok(req);
+        nodeAssert.ok(res);
+        res.end(JSON.stringify({ hello: "panorama" }));
+      },
+    });
+
+    await panorama.addRoute({
+      method: "GET",
+      route: "/test/another",
+      handler: (req: IncomingMessage, res: ServerResponse) => {
+        nodeAssert.ok(req);
+        nodeAssert.ok(res);
+        res.end(JSON.stringify({ hello: "another panorama" }));
+      },
+    });
+
+    const server = http.createServer((req: IncomingMessage, res: ServerResponse) => {
+      panorama.lookup(req, res);
+    });
+
+    const { stopServer, port } = await startServer(server);
+    const { body, statusCode } = await httpGet(`http://localhost:${port}/test/another`);
+
+    assert.deepEqual(body, { hello: "another panorama" });
+    assert.equal(statusCode, 200);
+
+    await stopServer();
+  });
+
+  await t.test("nested routes with params", async (t) => {
+    const assert = tspl(t, { plan: 3 });
+    const panorama = new Panorama();
+
+    await panorama.init();
+
+    await panorama.addRoute({
+      method: "GET",
+      route: "/test/:id",
+      handler: (req: IncomingMessage, res: ServerResponse, params?: Record<string, string>) => {
+        nodeAssert.ok(req);
+        nodeAssert.ok(res);
+        assert.deepEqual(params, { id: "another" });
+        res.end(JSON.stringify({ from: "route" }));
+      },
+    });
+
+    await panorama.addRoute({
+      method: "GET",
+      route: "/test/:id/another",
+      handler: (req: IncomingMessage, res: ServerResponse, params?: Record<string, string>) => {
+        nodeAssert.ok(req);
+        nodeAssert.ok(res);
+        assert.deepEqual(params, { id: "nested" });
+        res.end(JSON.stringify({ from: "nested-route-with-params" }));
+      },
+    });
+
+    const server = http.createServer((req: IncomingMessage, res: ServerResponse) => {
+      panorama.lookup(req, res);
+    });
+
+    const { stopServer, port } = await startServer(server);
+    const { body, statusCode } = await httpGet(`http://localhost:${port}/test/nested/another`);
+
+    assert.deepEqual(body, { from: "nested-route-with-params" });
+    assert.equal(statusCode, 200);
+
+    await stopServer();
+  });
 });
