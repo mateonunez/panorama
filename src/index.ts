@@ -164,42 +164,21 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
   }
 
   #isRootUrl(url: string): boolean {
-    return url === "/";
+    return url.indexOf("/") === 0 && url.length === 1;
   }
 
-  #findFromHits(hits: Result<PanoramaRouteIndex>[], routeName: string, segments: Array<string>, method: string): string {
-    const filteredHits = [];
-    let j = 0;
+  #findFromHits(hits: Result<PanoramaRouteIndex>[], routeName: string, _segments: Array<string>, method: string): string {
+    const segments = this.#computeNestedRoutes(routeName);
+    const segmentsLength = segments.length;
+    let routeId = this.#rootDocumentId;
     for (let i = 0; i < hits.length; i++) {
-      const hit = hits[i];
-      if (hit.document.method === method) {
-        filteredHits[j] = hit;
-        j++;
+      if (hits[i].document.method.indexOf(method) === 0 && hits[i].document.segments?.length === segmentsLength) {
+        routeId = hits[i].id;
+        break;
       }
     }
 
-    let route;
-    if (segments.length > 0) {
-      for (let i = 0; i < filteredHits.length; i++) {
-        if (filteredHits[i].document.segments?.length === segments.length) {
-          route = filteredHits[i];
-          break;
-        }
-      }
-    } else {
-      for (let i = 0; i < filteredHits.length; i++) {
-        if (filteredHits[i].document.url === routeName) {
-          route = filteredHits[i];
-          break;
-        }
-      }
-    }
-
-    if (!route) {
-      return filteredHits[0].id;
-    }
-
-    return route.id;
+    return routeId;
   }
 }
 
