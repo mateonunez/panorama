@@ -1,5 +1,6 @@
 import { create, insert, search, update } from "@orama/orama";
 import type { Orama, Result } from "@orama/orama";
+import { createOramaCache } from "orama-cache";
 import type { HTTPVersion, PanoramaRoute, PanoramaRouteIndex, Req, Res } from "./types/panorama.type";
 
 const panoramaRouteIndexSchema = {
@@ -18,12 +19,16 @@ interface IPanorama<T, V extends HTTPVersion> {
 class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPanorama<T, V> {
   #routes!: Map<string, PanoramaRoute<T, V>>;
   #orama!: Orama<typeof panoramaRouteIndexSchema>;
+  #oramaCache!: ReturnType<typeof createOramaCache>;
   #rootDocumentId!: string;
   #initialized = false;
 
   async init() {
     this.#routes = new Map();
-    this.#orama = await create({ schema: panoramaRouteIndexSchema });
+    this.#orama = await create({
+      schema: panoramaRouteIndexSchema,
+    });
+    this.#oramaCache = createOramaCache(this.#orama);
 
     const rootIndex = this.#generateIndex({
       method: "GET",
@@ -70,28 +75,25 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
       throw new Error("route name is undefined");
     }
 
-    if (this.#isRootUrl(routeName)) {
-      const route = this.#routes.get(this.#rootDocumentId);
-      /* c8 ignore next 3 */
-      if (route === undefined) {
-        throw new Error(`route ${routeName} not found`);
-      }
+    const results = await this.#oramaCache.search({
+      term: routeName,
+      properties: ["url"],
+      where: {
+        method,
+      },
+    });
 
-      return route;
-    }
-
-    const results = await search(this.#orama, { term: routeName, properties: ["url"], exact: true });
     const hits = results.hits;
     let route: PanoramaRoute<T, V> | undefined;
     if (hits.length === 0) {
-      throw new Error(`route ${routeName} not found`);
+      route = this.#routes.get(this.#rootDocumentId);
     } else if (hits.length === 1) {
       const routeDocumentId = hits[0].id;
       route = this.#routes.get(routeDocumentId);
     } else {
       /* c8 ignore next */
       const nested = segments ?? [];
-      const routeDocumentId = this.#findFromHits(hits, routeName, method, nested);
+      const routeDocumentId = this.#findFromHits(hits, routeName, nested);
       route = this.#routes.get(routeDocumentId);
     }
 
@@ -176,14 +178,8 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
     return url === "/";
   }
 
-  #findFromHits(hits: Result<PanoramaRouteIndex>[], routeName: string, method: string, segments: Array<string>): string {
-    const filteredHits = [];
-    for (let i = 0; i < hits.length; i++) {
-      if (hits[i].document.method === method) {
-        filteredHits.push(hits[i]);
-      }
-    }
-
+  #findFromHits(hits: Result<PanoramaRouteIndex>[], routeName: string, segments: Array<string>): string {
+    const filteredHits = hits;
     if (filteredHits.length === 1) {
       return filteredHits[0].id;
     }
