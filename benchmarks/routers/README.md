@@ -12,17 +12,12 @@ Tested routes:
 - [@medley/router](https://www.npmjs.com/package/@medley/router)
 - [Hono RegExpRouter](https://github.com/honojs/hono)
 - [Hono TrieRouter](https://github.com/honojs/hono)
+- [Panorama](https://github.com/mateonunez/panorama)
 
 For Node.js:
 
 ```
 yarn bench:node
-```
-
-For Bun:
-
-```
-yarn bench:bun
 ```
 
 This project is heavily impaired by [delvedor/router-benchmark](https://github.com/delvedor/router-benchmark)

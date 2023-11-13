@@ -75,14 +75,14 @@ for (const route of routes) {
   })
 }
 
-// group('all together', () => {
-//   for (const router of routers) {
-//     bench(router.name, async () => {
-//       for (const route of routes) {
-//         router.match(route)
-//       }
-//     })
-//   }
-// })
+group('all together', () => {
+  for (const router of routers) {
+    bench(router.name, async () => {
+      for (const route of routes) {
+        router.match(route)
+      }
+    })
+  }
+})
 
 await run()
