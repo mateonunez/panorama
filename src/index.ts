@@ -21,7 +21,6 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
   #orama!: Orama<typeof panoramaRouteIndexSchema>;
   #oramaCache!: ReturnType<typeof createOramaCache>;
   #rootDocumentId!: string;
-  #initialized = false;
 
   async init() {
     this.#routes = {};
@@ -36,8 +35,7 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
       handler: () => true,
     });
     this.#rootDocumentId = await insert(this.#orama, rootIndex);
-    this.#initialized = true;
-  }
+ }
 
   async addRoute(route: PanoramaRoute<T, V>): Promise<void> {
     if (route.__documentId && this.#routes[route.__documentId]) {
