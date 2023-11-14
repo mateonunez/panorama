@@ -1,7 +1,7 @@
-import { create, insert, search, update } from "@orama/orama";
+import { create, insert, update } from "@orama/orama";
 import type { Orama, Result } from "@orama/orama";
 import { createOramaCache } from "orama-cache";
-import type { HTTPVersion, PanoramaRoute, PanoramaRouteIndex, Req, Res } from "./types/panorama.type";
+import type { HTTPVersion, PanoramaRoute, PanoramaRouteIndex, Req, Res } from "./types/panorama.type.js";
 
 const panoramaRouteIndexSchema = {
   method: "string",
@@ -17,14 +17,13 @@ interface IPanorama<T, V extends HTTPVersion> {
 }
 
 class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPanorama<T, V> {
-  #routes!: Map<string, PanoramaRoute<T, V>>;
+  #routes!: Record<string, PanoramaRoute<T, V>>;
   #orama!: Orama<typeof panoramaRouteIndexSchema>;
   #oramaCache!: ReturnType<typeof createOramaCache>;
   #rootDocumentId!: string;
-  #initialized = false;
 
   async init() {
-    this.#routes = new Map();
+    this.#routes = {};
     this.#orama = await create({
       schema: panoramaRouteIndexSchema,
     });
@@ -36,80 +35,46 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
       handler: () => true,
     });
     this.#rootDocumentId = await insert(this.#orama, rootIndex);
-    this.#initialized = true;
-  }
+ }
 
   async addRoute(route: PanoramaRoute<T, V>): Promise<void> {
-    if (!this.#initialized) {
-      throw new Error("Panorama not initialized");
-    }
-
-    if (route.__documentId && this.#routes.has(route.__documentId)) {
+    if (route.__documentId && this.#routes[route.__documentId]) {
       throw new Error(`route ${route.__documentId} already exists`);
     }
 
     if (this.#isRootUrl(route.url)) {
       route.__documentId = this.#rootDocumentId;
       await update(this.#orama, this.#rootDocumentId, route);
-      this.#routes.set(this.#rootDocumentId, route);
+      this.#routes[this.#rootDocumentId] = route;
       return;
     }
 
     const index = this.#generateIndex(route);
     const documentId = await insert(this.#orama, index);
 
-    this.#routes.set(documentId, {
+    this.#routes[documentId] = {
       ...route,
       __documentId: documentId,
-    });
+    };
   }
 
-  async getRoute(routeName?: string, methodName?: string, segments?: Array<string>): Promise<PanoramaRoute<T, V>> {
-    if (!this.#initialized) {
-      throw new Error("Panorama not initialized");
-    }
-
-    const method = methodName ?? "GET";
-
-    if (routeName === undefined) {
-      throw new Error("route name is undefined");
-    }
-
+  async getRoute(routeName = "/", method = "GET", segments: Array<string> = []): Promise<PanoramaRoute<T, V>> {
     const results = await this.#oramaCache.search({
       term: routeName,
-      properties: ["url"],
-      where: {
-        method,
-      },
     });
 
     const hits = results.hits;
-    let route: PanoramaRoute<T, V> | undefined;
-    if (hits.length === 0) {
-      route = this.#routes.get(this.#rootDocumentId);
-    } else if (hits.length === 1) {
-      const routeDocumentId = hits[0].id;
-      route = this.#routes.get(routeDocumentId);
-    } else {
-      /* c8 ignore next */
-      const nested = segments ?? [];
-      const routeDocumentId = this.#findFromHits(hits, routeName, nested);
-      route = this.#routes.get(routeDocumentId);
+    let routeId = this.#rootDocumentId;
+    if (hits.length === 1) {
+      routeId = hits[0].id;
+    } else if (hits.length > 1) {
+      routeId = this.#findFromHits(hits, routeName, segments, method);
     }
 
-    /* c8 ignore next 3 */
-    if (route === undefined) {
-      throw new Error(`route ${routeName} not found`);
-    }
-
-    return route;
+    return this.#routes[routeId];
   }
 
   async lookup(req: Req<V>, res: Res<V>): Promise<void> {
-    if (!this.#initialized) {
-      throw new Error("Panorama not initialized");
-    }
-
     /* c8 ignore next */
     const url = req.url ?? "/";
     const segments = this.#computeNestedRoutes(url);
@@ -138,19 +103,14 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
     return index;
   }
 
-  #computeParams(route: string, url?: string): Record<string, string> {
+  #computeParams(route: string, url = "/"): Record<string, string> {
     const params: Record<string, string> = {};
     const routeParts = route.split("/");
     /* c8 ignore next */
-    const urlParts = url?.split("/") ?? [];
-
+    const urlParts = url.split("/");
     for (let i = 0; i < routeParts.length; i++) {
-      const routePart = routeParts[i];
-      const urlPart = urlParts[i];
-
-      if (routePart.startsWith(":")) {
-        const paramName = routePart.slice(1);
-        params[paramName] = urlPart;
+      if (routeParts[i].indexOf(":") === 0) {
+        params[routeParts[i].slice(1)] = urlParts[i];
       }
     }
 
@@ -159,53 +119,37 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
 
   #computeNestedRoutes(route: string): string[] {
     const segments = route.split("/");
-    const result: string[] = [];
-
+    const results: string[] = [];
+    let j = 0;
     for (let i = 1; i < segments.length; i++) {
-      let segment = segments[i];
-      if (segment.length > 0) {
-        if (segment.startsWith(":")) {
-          segment = segment.slice(1);
+      if (segments[i].length > 0) {
+        if (segments[i].indexOf(":") === 0) {
+          segments[i] = segments[i].slice(1);
         }
-        result.push(segment);
+        results[j] = segments[i];
+        j++;
       }
     }
 
-    return result;
+    return results;
   }
 
   #isRootUrl(url: string): boolean {
-    return url === "/";
+    return url === "/" && url.length === 1 || url === "";
   }
 
-  #findFromHits(hits: Result<PanoramaRouteIndex>[], routeName: string, segments: Array<string>): string {
-    const filteredHits = hits;
-    if (filteredHits.length === 1) {
-      return filteredHits[0].id;
-    }
-
-    let route;
-    if (segments.length > 0) {
-      for (let i = 0; i < filteredHits.length; i++) {
-        if (filteredHits[i].document.segments?.length === segments.length) {
-          route = filteredHits[i];
-          break;
-        }
-      }
-    } else {
-      for (let i = 0; i < filteredHits.length; i++) {
-        if (filteredHits[i].document.url === routeName) {
-          route = filteredHits[i];
-          break;
-        }
+  #findFromHits(hits: Result<PanoramaRouteIndex>[], routeName: string, _segments: Array<string>, method: string): string {
+    const segments = this.#computeNestedRoutes(routeName);
+    const segmentsLength = segments.length;
+    let routeId = this.#rootDocumentId;
+    for (let i = 0; i < hits.length; i++) {
+      if (hits[i].document.method.indexOf(method) === 0 && hits[i].document.segments?.length === segmentsLength) {
+        routeId = hits[i].id;
+        break;
       }
     }
 
-    if (!route) {
-      return hits[0].id;
-    }
-
-    return route.id;
+    return routeId;
   }
 }
 
