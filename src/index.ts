@@ -40,10 +40,6 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
   }
 
   async addRoute(route: PanoramaRoute<T, V>): Promise<void> {
-    if (!this.#initialized) {
-      throw new Error("Panorama not initialized");
-    }
-
     if (route.__documentId && this.#routes[route.__documentId]) {
       throw new Error(`route ${route.__documentId} already exists`);
     }
@@ -64,46 +60,23 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
     };
   }
 
-  async getRoute(routeName?: string, method = "GET", segments: Array<string> = []): Promise<PanoramaRoute<T, V>> {
-    if (!this.#initialized) {
-      throw new Error("Panorama not initialized");
-    }
-
-    if (routeName === undefined) {
-      throw new Error("route name is undefined");
-    }
-
+  async getRoute(routeName = "/", method = "GET", segments: Array<string> = []): Promise<PanoramaRoute<T, V>> {
     const results = await this.#oramaCache.search({
       term: routeName,
     });
 
     const hits = results.hits;
-    let route: PanoramaRoute<T, V> | undefined;
-    if (hits.length === 0) {
-      route = this.#routes[this.#rootDocumentId];
-    } else if (hits.length === 1) {
-      const routeDocumentId = hits[0].id;
-      route = this.#routes[routeDocumentId];
-    } else {
-      /* c8 ignore next */
-      const nested = segments;
-      const routeDocumentId = this.#findFromHits(hits, routeName, nested, method);
-      route = this.#routes[routeDocumentId];
+    let routeId = this.#rootDocumentId;
+    if (hits.length === 1) {
+      routeId = hits[0].id;
+    } else if (hits.length > 1) {
+      routeId = this.#findFromHits(hits, routeName, segments, method);
     }
 
-    /* c8 ignore next 3 */
-    if (route === undefined) {
-      throw new Error(`route ${routeName} not found`);
-    }
-
-    return route;
+    return this.#routes[routeId];
   }
 
   async lookup(req: Req<V>, res: Res<V>): Promise<void> {
-    if (!this.#initialized) {
-      throw new Error("Panorama not initialized");
-    }
-
     /* c8 ignore next */
     const url = req.url ?? "/";
     const segments = this.#computeNestedRoutes(url);
