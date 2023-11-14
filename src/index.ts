@@ -135,7 +135,7 @@ class Panorama<T extends Response, V extends HTTPVersion.HTTP1> implements IPano
   }
 
   #isRootUrl(url: string): boolean {
-    return url.indexOf("/") === 0 && url.length === 1;
+    return url === "/" && url.length === 1 || url === "";
   }
 
   #findFromHits(hits: Result<PanoramaRouteIndex>[], routeName: string, _segments: Array<string>, method: string): string {

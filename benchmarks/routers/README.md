@@ -20,7 +20,7 @@ For Node.js:
 yarn bench:node
 ```
 
-This project is heavily impaired by [delvedor/router-benchmark](https://github.com/delvedor/router-benchmark)
+The benchmarks are inspired by [hono](https://github.com/honojs/hono/tree/main/benchmarks/routers).
 
 ## License
 
